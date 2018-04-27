@@ -25,18 +25,25 @@ function Promice(callback) {
 
   this.then = (onsuc, onerr) => {
     if (this.state === 'initial') {
-      this.callback(this.resolve, this.reject)
+      this.completeEvent.once(this.resolved, () => onsuc(this.value))
+      this.completeEvent.once(this.rejected, () => onsuc(null, this.error))
       this.state = 'pending'
+      this.callback(this.resolve, this.reject)
+    } else if (this.state === 'pending') {
+      this.completeEvent.once(this.resolved, () => onsuc(this.value))
+      this.completeEvent.once(this.rejected, () => onsuc(null, this.error))
+    } else if (this.state === 'resolved') {
+      onsuc(this.value)
     }
-    this.completeEvent.once(this.resolved, () => onsuc(this.value))
-    this.completeEvent.once(this.rejected, () => onsuc(null, this.error))
   }
 }
 
 p = new Promice((resolve, reject) => {
-                   console.log('called');
-                   setTimeout(resolve,1000,1)
+                  console.log('called');
+                  setImmediate(resolve,1)
+                  // resolve(1)
                 })
 p.then(res => console.log('<>', res))
-p.then(res => console.log('<>', res))
-p.then(res => console.log('<>', res))
+p.then(res => console.log('<<>>', res))
+p.then(res => console.log('<<<>>>', res))
+p.then(res => console.log('<<<1457>>>', res))
