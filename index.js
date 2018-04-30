@@ -1,49 +1,67 @@
-const eventEmitter = require('events')
+const EventEmitter = require('events')
 
-function Promice(callback) {
-  this.callback = callback
+function Promice (_callback) {
+  this.callback = _callback
 
   this.resolved = Symbol('resolved')
   this.rejected = Symbol('rejected')
-  this.completeEvent = new eventEmitter(this.resolved)
-  this.rejectEvent = new eventEmitter(this.rejected)
-
+  this.Event = new EventEmitter()
   this.state = 'initial'
+  this.value = undefined
+  this.error = undefined
+  this.return = undefined
 
-  this.resolve = (value) => {
+  this.resolve = (_value) => {
+    if (this.state === 'resolved' || this.state === 'rejected') return
     console.log('resolved')
     this.state = 'resolved'
-    this.value = value
-    this.completeEvent.emit(this.resolved)
+    this.value = _value
+    this.Event.emit(this.resolved, _value)
   }
 
-  this.reject = function (error) {
-    state = 'rejected'
-    this.error = error
-    this.completeEvent.emit(this.rejected)
+  this.reject = (_error) => {
+    if (this.state === 'resolved' || this.state === 'rejected') return
+    console.log('rejected')
+    this.state = 'rejected'
+    this.error = _error
+    this.Event.emit(this.rejected, null, _error)
   }
 
-  this.then = (onsuc, onerr) => {
+  this.then = onSettelment => {
+    onSettelment = onSettelment || (() => {})
     if (this.state === 'initial') {
-      this.completeEvent.once(this.resolved, () => onsuc(this.value))
-      this.completeEvent.once(this.rejected, () => onsuc(null, this.error))
+      this.Event.once(this.resolved, onSettelment)
+      this.Event.once(this.rejected, onSettelment)
       this.state = 'pending'
       this.callback(this.resolve, this.reject)
     } else if (this.state === 'pending') {
-      this.completeEvent.once(this.resolved, () => onsuc(this.value))
-      this.completeEvent.once(this.rejected, () => onsuc(null, this.error))
+      this.Event.once(this.resolved, onSettelment)
+      this.Event.once(this.rejected, onSettelment)
     } else if (this.state === 'resolved') {
-      onsuc(this.value)
+      onSettelment(this.value, this.error)
     }
+    return new Promice(resolve => resolve(this.return))
   }
 }
 
-p = new Promice((resolve, reject) => {
-                  console.log('called');
-                  setImmediate(resolve,1)
-                  // resolve(1)
-                })
-p.then(res => console.log('<>', res))
-p.then(res => console.log('<<>>', res))
-p.then(res => console.log('<<<>>>', res))
-p.then(res => console.log('<<<1457>>>', res))
+let valueResolver = (resolve, reject) => {
+  console.log('called')
+
+  // Do computation || I/O ooperation
+
+  // setImmediate(resolve, 'hola')
+  // setTimeout(resolve, 1000, 1)
+  resolve(1)
+  // reject(Error('I should not print'))
+}
+
+console.log('before construction')
+let p = new Promice(valueResolver)
+
+console.log('after construction')
+p.then((r, e) => { console.log('<>', r, e); return 2 })
+p.then(resolvedValue => console.log('<<>>', resolvedValue))
+console.log('between calls')
+p.then(resolvedValue => console.log('<<<>>>', resolvedValue))
+p.then(resolvedValue => console.log('<<<1457>>>', resolvedValue))
+console.log('after calls')
