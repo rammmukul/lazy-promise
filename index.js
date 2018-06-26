@@ -28,19 +28,37 @@ function Promice (_callback) {
   }
 
   this.then = onSettelment => {
-    onSettelment = onSettelment || (() => {})
+    let settle = ((value, error) => { this.return = onSettelment(value, error) }) ||
+      (() => {})
     if (this.state === 'initial') {
-      this.Event.once(this.resolved, onSettelment)
-      this.Event.once(this.rejected, onSettelment)
+      this.Event.once(this.resolved, settle)
+      this.Event.once(this.rejected, settle)
       this.state = 'pending'
       this.callback(this.resolve, this.reject)
     } else if (this.state === 'pending') {
-      this.Event.once(this.resolved, onSettelment)
-      this.Event.once(this.rejected, onSettelment)
+      this.Event.once(this.resolved, settle)
+      this.Event.once(this.rejected, settle)
     } else if (this.state === 'resolved') {
-      onSettelment(this.value, this.error)
+      settle(this.value, this.error)
     }
-    return new Promice(resolve => resolve(this.return))
+    return new Promice((resolve, reject) => {
+      if (this.state === 'resolved') {
+        this.return instanceof Promice
+          ? this.return.then(res => resolve(res)) : resolve(this.return)
+      } else if (this.state === 'rejected') {
+        this.return instanceof Promice
+          ? this.return.then((_, err) => reject(err)) : reject(this.return)
+      } else {
+        this.Event.once(this.resolved, () => {
+          this.return instanceof Promice
+            ? this.return.then(res => resolve(res)) : resolve(this.return)
+        })
+        this.Event.once(this.rejected, () => {
+          this.return instanceof Promice
+            ? this.return.then((_, err) => reject(err)) : reject(this.return)
+        })
+      }
+    })
   }
 }
 
@@ -59,8 +77,8 @@ console.log('before construction')
 let p = new Promice(valueResolver)
 
 console.log('after construction')
-p.then((r, e) => { console.log('<>', r, e); return 2 })
-p.then(resolvedValue => console.log('<<>>', resolvedValue))
+p.then((r, e) => { console.log('<>', r, e); return new Promice(resolve => resolve(2)) })
+  .then(resolvedValue => console.log('<<>>', resolvedValue))
 console.log('between calls')
 p.then(resolvedValue => console.log('<<<>>>', resolvedValue))
 p.then(resolvedValue => console.log('<<<1457>>>', resolvedValue))
